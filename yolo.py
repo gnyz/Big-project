@@ -571,3 +571,77 @@ def draw_boxes(photo_file, v_boxes, v_labels, v_scores):
     plt.savefig('fig_pic/' + str(cnt).zfill(4) + '.jpg')
     # show the plot
     # plt.show()
+
+def make_predict(photo_file):
+    img, img_w, img_h = img_loader(photo_file, input_w, input_h)
+    y_hat = model(img)
+    boxes = []
+    for i in range(len(y_hat)):
+        # decode the output of the network
+        boxes += decode_netout(y_hat[i][0], anchors[i], class_threshold, input_w, input_h)
+    # correct the sizes of the bounding boxes for the shape of the image
+    correct_yolo_boxes(boxes, img_w, img_h, input_w, input_h)
+    # suppress non-maximal boxes
+    do_nms(boxes, 0.5)
+    # get the details of the detected objects
+    v_boxes, v_labels, v_scores = get_boxes(boxes, labels, class_threshold)
+    # summarize what we found
+    for i in range(len(v_boxes)):
+        print(v_labels[i], v_scores[i])
+    # draw what we found
+    draw_boxes(photo_file, v_boxes, v_labels, v_scores)
+
+#权重文件能够预测的标签
+labels = ["person", "bicycle", "car", "motorbike", "aeroplane", "bus", "train", "truck",
+    "boat", "traffic light", "fire hydrant", "stop sign", "parking meter", "bench",
+    "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe",
+    "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard",
+    "sports ball", "kite", "baseball bat", "baseball glove", "skateboard", "surfboard",
+    "tennis racket", "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana",
+    "apple", "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake",
+    "chair", "sofa", "pottedplant", "bed", "diningtable", "toilet", "tvmonitor", "laptop", "mouse",
+    "remote", "keyboard", "cell phone", "microwave", "oven", "toaster", "sink", "refrigerator",
+    "book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"]
+
+#预先设定的锚点
+anchors = [[116,90, 156,198, 373,326], [30,61, 62,45, 59,119], [10,13, 16,30, 33,23]]
+#输入的网络的宽高
+input_w, input_h = 416, 416
+#置信度阈值
+class_threshold = 0.75
+#读取图片开始预测
+# photo_file = 'cup.jpg'
+# make_predict(photo_file)
+
+# 读取视频文件
+cap = cv2.VideoCapture("测试1.mp4")
+cnt = 0
+while(1):
+    try:
+        ret, frame = cap.read()
+        # cv2.imshow("capture", frame)
+        cnt = cnt + 1
+        pic_path = 'pic/'
+        cv2.imwrite(pic_path + str(cnt).zfill(4) + '.jpg', frame)
+        make_predict(pic_path + str(cnt).zfill(4) + '.jpg')
+    except:
+        break
+
+#生成视频
+im_dir = 'fig_pic'  # 图片存储路径
+video_dir = 'result.avi' #合成后的视频名称, 只能合成avi格式视频
+imglist = sorted(os.listdir(im_dir)) #将排序后的路径返回到imglist列表中
+img = cv2.imread(os.path.join(im_dir,imglist[0])) #合并目录与文件名生成图片文件的路径,随便选一张图片路径来获取图像大小
+H, W, D = img.shape #获取视频高\宽\深度
+print('height:' + str(H)+'--'+'width:'+str(W)+'--'+'depth:'+str(D))
+fps = 29.97 #帧率
+img_size = (W,H) #图片尺寸宽x高,必须是原图片的size,否则合成失败
+fourcc = cv2.VideoWriter_fourcc('M','J','P','G')
+videoWriter = cv2.VideoWriter(video_dir, fourcc, fps, img_size)
+for image in imglist:
+    img_name = os.path.join(im_dir, image)
+    frame = cv2.imread(img_name)
+    videoWriter.write(frame)
+    print('合成==>'+img_name)
+videoWriter.release()
+print('finish!')
